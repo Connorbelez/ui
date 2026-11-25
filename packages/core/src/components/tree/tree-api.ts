@@ -188,9 +188,21 @@ function treeApiBody(
 
   const shape = () => fromData()?.tree ?? fromParts()
 
+  // A render React slices, like hydration in a transition, can sweep the parts
+  // it made before their children render, so each item's parent is kept here.
+  const parents = new Map<string, string | null>()
+  function namedParent(key: string, props = itemProps(key)) {
+    if (!props) {
+      return parents.get(key) ?? null
+    }
+    const parent = props.parent ?? null
+    parents.set(key, parent)
+    return parent
+  }
+
   function parentOf(key: string) {
     const known = fromData()
-    return known ? known.tree.parent(key) : (itemProps(key)?.parent ?? null)
+    return known ? known.tree.parent(key) : namedParent(key)
   }
 
   // Outermost first. A parent chain that loops stops where it repeats.
@@ -1087,9 +1099,9 @@ function treeApiBody(
         let level = 1
         const seen = new Set([key])
         for (
-          let up = props?.parent ?? null;
+          let up = namedParent(key, props);
           up !== null && !seen.has(up);
-          up = itemProps(up)?.parent ?? null
+          up = namedParent(up)
         ) {
           seen.add(up)
           level++
